@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const notificationController = require('./notificationController');
 
 // Get recent transactions
 exports.getRecentTransactions = async (req, res) => {
@@ -34,10 +35,22 @@ exports.addTransaction = async (req, res) => {
 
     // Validation
     if (!description || !category || !amount || !type) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'Your transaction failed. Please check all fields and try again.'
+      );
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
     if (!['income', 'expense'].includes(type)) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'Invalid transaction type. Please try again.'
+      );
       return res.status(400).json({ success: false, message: 'Type must be income or expense' });
     }
 
@@ -54,10 +67,12 @@ exports.addTransaction = async (req, res) => {
 
     // Update user totals
     const user = await User.findById(req.user.id);
+    const parsedAmount = parseFloat(amount);
+    
     if (type === 'income') {
-      user.total_income += parseFloat(amount);
+      user.total_income += parsedAmount;
     } else {
-      user.total_expense += parseFloat(amount);
+      user.total_expense += parsedAmount;
     }
 
     // Update financial health
@@ -66,12 +81,51 @@ exports.addTransaction = async (req, res) => {
 
     await user.save();
 
+    // Create notifications
+    if (type === 'expense') {
+      // Create expense alert notification
+      await notificationController.createNotification(
+        req.user.id,
+        'alert',
+        'Money Spent',
+        `You spent $${parsedAmount.toFixed(2)} on ${category}`
+      );
+
+      // Check if balance is low (<=10% of monthly income) - only for expenses
+      const remainingBalance = user.total_income - user.total_expense;
+      const thresholdAmount = user.monthly_income * 0.1;
+      
+      if (remainingBalance <= thresholdAmount) {
+        await notificationController.createNotification(
+          req.user.id,
+          'warning',
+          'Warning: Low Balance',
+          `You have only $${remainingBalance.toFixed(2)} in your account`
+        );
+      }
+    } else if (type === 'income') {
+      // Create income success notification
+      await notificationController.createNotification(
+        req.user.id,
+        'success',
+        `$${parsedAmount.toFixed(2)} Received`,
+        `You received $${parsedAmount.toFixed(2)}`
+      );
+    }
+
     res.status(201).json({
       success: true,
       message: 'Transaction added successfully',
       data: newTransaction,
     });
   } catch (error) {
+    // Create failure notification on error
+    await notificationController.createNotification(
+      req.user.id,
+      'failure',
+      'Transaction Failure',
+      `Your transaction couldn't be created. Error: ${error.message}`
+    );
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -85,11 +139,23 @@ exports.updateTransaction = async (req, res) => {
     const transaction = await Transaction.findById(transactionId);
 
     if (!transaction) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'Transaction not found. Try again.'
+      );
       return res.status(404).json({ success: false, message: 'Transaction not found' });
     }
 
     // Check if user owns this transaction
     if (transaction.user_id.toString() !== req.user.id) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'You are not authorized to update this transaction.'
+      );
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
@@ -124,6 +190,13 @@ exports.updateTransaction = async (req, res) => {
       data: transaction,
     });
   } catch (error) {
+    // Create failure notification on error
+    await notificationController.createNotification(
+      req.user.id,
+      'failure',
+      'Transaction Failure',
+      'Your transaction couldn\'t be updated. Try again.'
+    );
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -136,11 +209,23 @@ exports.deleteTransaction = async (req, res) => {
     const transaction = await Transaction.findById(transactionId);
 
     if (!transaction) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'Transaction not found. Try again.'
+      );
       return res.status(404).json({ success: false, message: 'Transaction not found' });
     }
 
     // Check if user owns this transaction
     if (transaction.user_id.toString() !== req.user.id) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Transaction Failure',
+        'You are not authorized to delete this transaction.'
+      );
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
@@ -165,6 +250,13 @@ exports.deleteTransaction = async (req, res) => {
       message: 'Transaction deleted successfully',
     });
   } catch (error) {
+    // Create failure notification on error
+    await notificationController.createNotification(
+      req.user.id,
+      'failure',
+      'Transaction Failure',
+      'Your transaction couldn\'t be deleted. Try again.'
+    );
     res.status(500).json({ success: false, message: error.message });
   }
 };

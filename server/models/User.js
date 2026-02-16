@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   total_income: { type: Number, default: 0 },
   total_expense: { type: Number, default: 0 },
 
-  financial_health: Number,
+  financial_health: { type: Number, default: 50 },
 
   member_since: { type: Date, default: Date.now },
 }, { timestamps: true });

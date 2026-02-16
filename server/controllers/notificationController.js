@@ -1,5 +1,19 @@
 const Notification = require('../models/Notification');
 
+// Helper function to format relative time
+const getRelativeTime = (date) => {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(date).toLocaleDateString('en-US');
+};
+
 // Mark Notification as read
 exports.markAsRead = async (req, res) => {
   try {
@@ -49,11 +63,12 @@ exports.getUnreadNotifications = async (req, res) => {
       is_read: false,
     }).sort({ createdAt: -1 });
 
-    const formattedNotifications = notifications.map((notif, index) => ({
-      id: index + 1, // Most recent gets id 1
-      message: notif.message,
+    const formattedNotifications = notifications.map((notif) => ({
+      id: notif._id,
       type: notif.type,
-      timestamp: new Date(notif.createdAt).toLocaleDateString('en-US'),
+      title: notif.message.title,
+      message: notif.message.message,
+      timestamp: getRelativeTime(notif.createdAt),
       read: notif.is_read,
     }));
 
@@ -73,15 +88,12 @@ exports.getAllNotifications = async (req, res) => {
       user_id: req.user.id,
     }).sort({ createdAt: -1 });
 
-    const formattedNotifications = notifications.map((notif, index) => ({
-      id: index + 1, // Most recent gets id 1
-      notif_id: notif._id,
-      user_id: notif.user_id,
+    const formattedNotifications = notifications.map((notif) => ({
+      id: notif._id,
       type: notif.type,
-      message: notif.message,
-      is_read: notif.is_read,
-      created_at: notif.createdAt,
-      timestamp: new Date(notif.createdAt).toLocaleDateString('en-US'),
+      title: notif.message.title,
+      message: notif.message.message,
+      timestamp: getRelativeTime(notif.createdAt),
       read: notif.is_read,
     }));
 
@@ -95,12 +107,15 @@ exports.getAllNotifications = async (req, res) => {
 };
 
 // Create Notification (helper for internal use)
-exports.createNotification = async (userId, type, message, metadata = {}) => {
+exports.createNotification = async (userId, type, title, message, metadata = {}) => {
   try {
     const notification = new Notification({
       user_id: userId,
       type,
-      message,
+      message: {
+        title,
+        message,
+      },
       is_read: false,
       metadata,
     });

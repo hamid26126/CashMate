@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const Transaction = require('../models/Transaction');
+const notificationController = require('./notificationController');
 
 // Get user info (total income, total expense, remaining balance, financial health)
 exports.getInfo = async (req, res) => {
@@ -117,10 +118,22 @@ exports.changePassword = async (req, res) => {
 
     // Validation
     if (!current || !newPassword || !confirm) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Password Change Failed',
+        'All fields are required.'
+      );
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
     if (newPassword !== confirm) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Password Change Failed',
+        'New passwords do not match.'
+      );
       return res.status(400).json({ success: false, message: 'New passwords do not match' });
     }
 
@@ -129,6 +142,12 @@ exports.changePassword = async (req, res) => {
     // Verify current password
     const isPasswordValid = await bcrypt.compare(current, user.password);
     if (!isPasswordValid) {
+      await notificationController.createNotification(
+        req.user.id,
+        'failure',
+        'Password Change Failed',
+        'Current password is incorrect.'
+      );
       return res.status(401).json({ success: false, message: 'Current password is incorrect' });
     }
 
@@ -142,6 +161,12 @@ exports.changePassword = async (req, res) => {
       message: 'Password changed successfully',
     });
   } catch (error) {
+    await notificationController.createNotification(
+      req.user.id,
+      'failure',
+      'Password Change Failed',
+      'An error occurred while changing your password. Try again.'
+    );
     res.status(500).json({ success: false, message: error.message });
   }
 };
