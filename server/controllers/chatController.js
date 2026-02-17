@@ -326,7 +326,6 @@ setInterval(() => {
     }
   }
   
-  console.log(`Cleanup: Cache size=${responseCache.size}, RateLimit entries=${rateLimitStore.size}`);
 }, 60000); // Run every minute
 
 // Get user info for chatbot prompt

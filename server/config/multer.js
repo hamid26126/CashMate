@@ -1,3 +1,8 @@
-import multer from "multer";
+const multer = require('multer');
 
-export const upload = multer({storage: multer.diskStorage({})})
+// Use memory storage so we can upload buffers directly to Cloudinary
+const storage = multer.memoryStorage();
+
+const upload = multer({ storage });
+
+module.exports = { upload };

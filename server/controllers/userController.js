@@ -5,6 +5,8 @@ const Notification = require('../models/Notification');
 const ChatHistory = require('../models/ChatHistory');
 const ExpenseCategoryDivision = require('../models/ExpenseCategoryDivision');
 const notificationController = require('./notificationController');
+const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
 // Get user info (total income, total expense, remaining balance, financial health)
 exports.getInfo = async (req, res) => {
@@ -200,25 +202,74 @@ exports.deleteAccount = async (req, res) => {
 // Update Profile Photo
 exports.updateProfilePhoto = async (req, res) => {
   try {
-    const { avatarUrl } = req.body;
+    // If a file is provided via multipart/form-data (multer memory storage)
+    if (req.file && req.file.buffer) {
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+      // If user already has an image stored in Cloudinary, delete it first
+      if (user.avatarPublicId) {
+        try {
+          await cloudinary.uploader.destroy(user.avatarPublicId);
+        } catch (e) {
+          // Non-fatal: proceed even if deletion fails
+          console.warn('Previous Cloudinary deletion failed:', e.message || e);
+        }
+      }
+
+      // Upload new image via stream
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream({ folder: 'cashmate_avatars', resource_type: 'image' }, (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        });
+        streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+      });
+
+      user.avatarUrl = result.secure_url;
+      user.avatarPublicId = result.public_id;
+      await user.save();
+
+      return res.status(200).json({ success: true, message: 'Profile photo updated successfully', data: { avatarUrl: user.avatarUrl } });
+    }
+
+    // Fallback: allow updating avatar via URL in request body (existing behaviour)
+    const { avatarUrl } = req.body;
     if (!avatarUrl) {
       return res.status(400).json({ success: false, message: 'Avatar URL is required' });
     }
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { avatarUrl },
+      { avatarUrl, avatarPublicId: undefined },
       { new: true }
     );
 
-    res.status(200).json({
-      success: true,
-      message: 'Profile photo updated successfully',
-      data: {
-        avatarUrl: user.avatarUrl,
-      },
-    });
+    res.status(200).json({ success: true, message: 'Profile photo updated successfully', data: { avatarUrl: user.avatarUrl } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete Profile Photo
+exports.deleteProfilePhoto = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (user.avatarPublicId) {
+      try {
+        await cloudinary.uploader.destroy(user.avatarPublicId);
+      } catch (err) {
+        console.warn('Cloudinary deletion failed:', err.message || err);
+      }
+    }
+
+    user.avatarUrl = undefined;
+    user.avatarPublicId = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Profile photo deleted successfully', data: { avatarUrl: null } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

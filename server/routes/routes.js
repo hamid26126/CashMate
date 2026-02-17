@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const isAuth = require('../middleware/isAuth');
+const { upload } = require('../config/multer');
 
 // Controllers
 const authController = require('../controllers/authController');
@@ -29,8 +30,11 @@ router.get('/user/profile', isAuth, userController.getProfile);
 // PUT /api/user/profile
 router.put('/user/profile', isAuth, userController.updateProfile);
 
-// POST /api/user/profile-photo
-router.post('/user/profile-photo', isAuth, userController.updateProfilePhoto);
+// POST /api/user/profile-photo (upload image file)
+router.post('/user/profile-photo', isAuth, upload.single('file'), userController.updateProfilePhoto);
+
+// DELETE /api/user/profile-photo (delete current profile image)
+router.delete('/user/profile-photo', isAuth, userController.deleteProfilePhoto);
 
 // POST /api/user/change-password
 router.post('/user/change-password', isAuth, userController.changePassword);

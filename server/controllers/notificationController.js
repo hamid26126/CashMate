@@ -170,7 +170,7 @@ exports.subscribeToNotifications = (req, res) => {
 
   // Store the client connection
   sseClients.set(userId, res);
-  console.log(`User ${userId} connected to notifications SSE`);
+  // console.log(`User ${userId} connected to notifications SSE`);
 
   // Send initial connection confirmation
   res.write(`:connected\n\n`);
