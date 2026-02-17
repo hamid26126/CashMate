@@ -9,6 +9,8 @@ const userController = require('../controllers/userController');
 const transactionController = require('../controllers/transactionController');
 const notificationController = require('../controllers/notificationController');
 const chatController = require('../controllers/chatController');
+const goalController = require('../controllers/goalController');
+const savingController = require('../controllers/savingController');
 
 // ==================== AUTHENTICATION ROUTES ====================
 // POST /api/auth/register
@@ -90,5 +92,37 @@ router.get('/chat/history', isAuth, chatController.getChatHistory);
 
 // DELETE /api/chat/history
 router.delete('/chat/history', isAuth, chatController.clearChatHistory);
+
+// ==================== GOAL ROUTES ====================
+// POST /api/goals (create goal)
+router.post('/goals', isAuth, goalController.createGoal);
+
+// GET /api/goals (get all user goals)
+router.get('/goals', isAuth, goalController.getUserGoals);
+
+// GET /api/goals/:goalId (get single goal)
+router.get('/goals/:goalId', isAuth, goalController.getGoal);
+
+// PUT /api/goals/:goalId (update goal)
+router.put('/goals/:goalId', isAuth, goalController.updateGoal);
+
+// DELETE /api/goals/:goalId (delete goal)
+router.delete('/goals/:goalId', isAuth, goalController.deleteGoal);
+
+// ==================== SAVING ROUTES ====================
+// POST /api/savings/allocate (allocate money to a goal)
+router.post('/savings/allocate', isAuth, savingController.allocateSaving);
+
+// GET /api/savings (get all user savings)
+router.get('/savings', isAuth, savingController.getUserSavings);
+
+// GET /api/savings/goal/:goal_id (get savings for a specific goal)
+router.get('/savings/goal/:goal_id', isAuth, savingController.getGoalSavings);
+
+// PUT /api/savings/:saving_id/refund (refund a saving)
+router.put('/savings/:saving_id/refund', isAuth, savingController.refundSaving);
+
+// GET /api/savings/total (get total saved)
+router.get('/savings/total', isAuth, savingController.getTotalSaved);
 
 module.exports = router;

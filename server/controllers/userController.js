@@ -4,6 +4,8 @@ const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
 const ChatHistory = require('../models/ChatHistory');
 const ExpenseCategoryDivision = require('../models/ExpenseCategoryDivision');
+const Saving = require('../models/Saving');
+const mongoose = require('mongoose');
 const notificationController = require('./notificationController');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
@@ -16,14 +18,18 @@ exports.getInfo = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+    // Calculate total saved using find (simpler and safer than aggregate)
+    const allocatedSavings = await Saving.find({ user_id: req.user.id, status: 'allocated' });
+    const totalSaved = allocatedSavings.reduce((sum, saving) => sum + saving.amount, 0);
 
-    const remainingBalance = user.total_income - user.total_expense;
+    const remainingBalance = user.total_income - user.total_expense - totalSaved;
 
     res.status(200).json({
       success: true,
       data: {
         total_income: user.total_income,
         total_expense: user.total_expense,
+        total_saved: totalSaved,
         remaining_balance: remainingBalance,
         financial_health: user.financial_health,
       },
