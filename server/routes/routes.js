@@ -11,6 +11,7 @@ const notificationController = require('../controllers/notificationController');
 const chatController = require('../controllers/chatController');
 const goalController = require('../controllers/goalController');
 const savingController = require('../controllers/savingController');
+const reminderController = require('../controllers/reminderController');
 
 // ==================== AUTHENTICATION ROUTES ====================
 // POST /api/auth/register
@@ -124,5 +125,30 @@ router.put('/savings/:saving_id/refund', isAuth, savingController.refundSaving);
 
 // GET /api/savings/total (get total saved)
 router.get('/savings/total', isAuth, savingController.getTotalSaved);
+
+// ==================== REMINDER ROUTES ====================
+// POST /api/reminders (create reminder)
+router.post('/reminders', isAuth, reminderController.createReminder);
+
+// GET /api/reminders (get all user reminders)
+router.get('/reminders', isAuth, reminderController.getUserReminders);
+
+// GET /api/reminders/:reminderId (get single reminder)
+router.get('/reminders/:reminderId', isAuth, reminderController.getReminder);
+
+// PUT /api/reminders/:reminderId (update reminder)
+router.put('/reminders/:reminderId', isAuth, reminderController.updateReminder);
+
+// PUT /api/reminders/:reminderId/complete (mark reminder as completed)
+router.put('/reminders/:reminderId/complete', isAuth, reminderController.completeReminder);
+
+// PUT /api/reminders/:reminderId/end (end recurring reminder)
+router.put('/reminders/:reminderId/end', isAuth, reminderController.endRecurringReminder);
+
+// DELETE /api/reminders/:reminderId (delete reminder)
+router.delete('/reminders/:reminderId', isAuth, reminderController.deleteReminder);
+
+// GET /api/reminders/trigger/check (for cron job - get reminders to trigger)
+router.get('/reminders/trigger/check', reminderController.getRemindersToTrigger);
 
 module.exports = router;
