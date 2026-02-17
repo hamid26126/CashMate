@@ -54,20 +54,43 @@ exports.addTransaction = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Type must be income or expense' });
     }
 
+    // Get user before saving transaction to validate balance
+    const user = await User.findById(req.user.id);
+    const parsedAmount = parseFloat(amount);
+
+    // Check if user has sufficient balance for expense transaction
+    if (type === 'expense') {
+      const remainingBalance = user.total_income - user.total_expense;
+      
+      if (remainingBalance < parsedAmount) {
+        const errorMessage = `Insufficient balance. You only have $${remainingBalance.toFixed(2)} remaining, but you're trying to spend $${parsedAmount.toFixed(2)}.`;
+        
+        await notificationController.createNotification(
+          req.user.id,
+          'failure',
+          'Transaction Failed: Insufficient Balance',
+          `You only have $${remainingBalance.toFixed(2)} remaining.`
+        );
+        
+        return res.status(400).json({ 
+          success: false, 
+          message: errorMessage,
+          remainingBalance: remainingBalance,
+          attemptedAmount: parsedAmount
+        });
+      }
+    }
+
     const newTransaction = new Transaction({
       user_id: req.user.id,
       description,
       category: { name: category },
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       type,
       date: date || new Date(),
     });
 
     await newTransaction.save();
-
-    // Update user totals
-    const user = await User.findById(req.user.id);
-    const parsedAmount = parseFloat(amount);
     
     if (type === 'income') {
       user.total_income += parsedAmount;
@@ -134,7 +157,7 @@ exports.addTransaction = async (req, res) => {
 exports.updateTransaction = async (req, res) => {
   try {
     const { transactionId } = req.params;
-    const { description, category, amount } = req.body;
+    const { description, category, amount, date } = req.body;
 
     const transaction = await Transaction.findById(transactionId);
 
@@ -167,6 +190,9 @@ exports.updateTransaction = async (req, res) => {
     transaction.description = description || transaction.description;
     transaction.category.name = category || transaction.category.name;
     transaction.amount = amount || transaction.amount;
+    if (date) {
+      transaction.date = new Date(date);
+    }
 
     await transaction.save();
 

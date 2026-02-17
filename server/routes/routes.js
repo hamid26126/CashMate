@@ -59,6 +59,9 @@ router.delete('/transactions/:transactionId', isAuth, transactionController.dele
 router.get('/expenses/categorical', isAuth, userController.getCategoricalExpenses);
 
 // ==================== NOTIFICATION ROUTES ====================
+// GET /api/notifications/subscribe (SSE endpoint for real-time notifications)
+router.get('/notifications/subscribe', isAuth, notificationController.subscribeToNotifications);
+
 // GET /api/notifications
 router.get('/notifications', isAuth, notificationController.getAllNotifications);
 

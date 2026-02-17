@@ -2,7 +2,13 @@ const jwt = require('jsonwebtoken');
 
 const isAuth = (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]; // Bearer token
+    // Try to get token from Authorization header first (standard)
+    let token = req.headers.authorization?.split(' ')[1];
+    
+    // Fallback: try to get token from query parameter (for SSE)
+    if (!token) {
+      token = req.query.token;
+    }
 
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided' });

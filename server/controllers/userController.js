@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const Transaction = require('../models/Transaction');
+const Notification = require('../models/Notification');
+const ChatHistory = require('../models/ChatHistory');
+const ExpenseCategoryDivision = require('../models/ExpenseCategoryDivision');
 const notificationController = require('./notificationController');
 
 // Get user info (total income, total expense, remaining balance, financial health)
@@ -174,13 +177,20 @@ exports.changePassword = async (req, res) => {
 // Delete Account
 exports.deleteAccount = async (req, res) => {
   try {
-    // Delete all user data
-    await Transaction.deleteMany({ user_id: req.user.id });
-    await User.findByIdAndDelete(req.user.id);
+    const userId = req.user.id;
+    
+    // Delete all user-related data in the following order
+    await Transaction.deleteMany({ user_id: userId });
+    await Notification.deleteMany({ user_id: userId });
+    await ChatHistory.deleteMany({ user_id: userId });
+    await ExpenseCategoryDivision.deleteMany({ user_id: userId });
+    
+    // Finally, delete the user account
+    await User.findByIdAndDelete(userId);
 
     res.status(200).json({
       success: true,
-      message: 'Account deleted successfully',
+      message: 'Account and all associated data deleted successfully',
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

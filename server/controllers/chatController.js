@@ -159,8 +159,8 @@ async function createTransactionSummary(userId) {
 // Detect if message can be answered by fallback (simple questions about financial data)
 function isSimpleQuestion(message) {
   const simpleKeywords = [
-    'balance', 'money', 'left', 'spent', 'expense', 'income', 'earn', 'health', 'score', 'save', 'goal',
-    'how much', 'what is', 'how are', 'tell me', 'show me', 'current', 'total', 'monthly'
+    // 'balance', 'money', 'left', 'spent', 'expense', 'income', 'earn', 'health', 'score', 'save', 'goal',
+    // 'how much', 'what is', 'how are', 'tell me', 'show me', 'current', 'total', 'monthly'
   ];
   const lowerMsg = message.toLowerCase();
   return simpleKeywords.some(keyword => lowerMsg.includes(keyword));
@@ -225,7 +225,7 @@ async function generateGroqResponse(userMessage, userId, conversationHistory) {
     }
 
     // Create a concise system prompt (smaller = fewer tokens = faster/cheaper)
-    const systemPrompt = `You are FinGuard AI, a financial advisor. User: ${summary.user_name}. Balance: $${summary.current_balance.toFixed(2)}. Income: $${summary.total_income.toFixed(2)}. Expenses: $${summary.total_expense.toFixed(2)}. Health Score: ${summary.financial_health_score}/100. Top spending: ${topCategories}. Provide brief, actionable advice.`;
+    const systemPrompt = `You are CashMate AI, a financial advisor. User: ${summary.user_name}. Balance: $${summary.current_balance.toFixed(2)}. Income: $${summary.total_income.toFixed(2)}. Expenses: $${summary.total_expense.toFixed(2)}. Health Score: ${summary.financial_health_score}/100. Top spending: ${topCategories}. Provide concise, actionable advice.`;
 
     // Build messages array for Groq API (OpenAI compatible format)
     const messages = [
@@ -252,6 +252,9 @@ async function generateGroqResponse(userMessage, userId, conversationHistory) {
     });
 
     console.log('Calling Groq API with model:', GROQ_MODEL);
+
+    console.log("Groq key exists:", !!process.env.GROQ_API_KEY);
+
     
     const groqResponse = await axios.post(
       GROQ_API_ENDPOINT,
