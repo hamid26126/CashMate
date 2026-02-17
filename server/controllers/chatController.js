@@ -1,11 +1,11 @@
 const ChatHistory = require('../models/ChatHistory');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+// Groq API Configuration\nconst GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 
 // Rate limiting implementation
 const rateLimitStore = new Map(); // { userId: { count: number, resetTime: timestamp } }
@@ -166,8 +166,8 @@ function isSimpleQuestion(message) {
   return simpleKeywords.some(keyword => lowerMsg.includes(keyword));
 }
 
-// Generate AI response using Gemini with smart caching and rate limiting
-async function generateGeminiResponse(userMessage, userId, conversationHistory) {
+// Generate AI response using Groq with smart caching and rate limiting
+async function generateGroqResponse(userMessage, userId, conversationHistory) {
   let summary;
   try {
     summary = await createTransactionSummary(userId);
@@ -198,8 +198,8 @@ async function generateGeminiResponse(userMessage, userId, conversationHistory) 
       return cached.response;
     }
 
-    // STEP 4: Only call Gemini API if needed
-    console.log('Complex question detected. Making Gemini API call...');
+    // STEP 4: Only call Groq API if needed
+    console.log('Complex question detected. Making Groq API call...');
 
     // Build category list string
     let topCategories = '';
@@ -227,32 +227,57 @@ async function generateGeminiResponse(userMessage, userId, conversationHistory) 
     // Create a concise system prompt (smaller = fewer tokens = faster/cheaper)
     const systemPrompt = `You are FinGuard AI, a financial advisor. User: ${summary.user_name}. Balance: $${summary.current_balance.toFixed(2)}. Income: $${summary.total_income.toFixed(2)}. Expenses: $${summary.total_expense.toFixed(2)}. Health Score: ${summary.financial_health_score}/100. Top spending: ${topCategories}. Provide brief, actionable advice.`;
 
-    // Build conversation context with only recent messages (save tokens)
-    let conversationContext = systemPrompt + "\n\n";
-    
+    // Build messages array for Groq API (OpenAI compatible format)
+    const messages = [
+      {
+        role: 'system',
+        content: systemPrompt
+      }
+    ];
+
+    // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
-      conversationContext += "Recent chat:\n";
-      // Only use last 2 messages, not 4 (save tokens)
       conversationHistory.slice(-2).forEach(msg => {
-        conversationContext += `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.message.substring(0, 100)}\n`;
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.message.substring(0, 100)
+        });
       });
-      conversationContext += "\n";
     }
 
-    conversationContext += `User: ${userMessage}`;
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: userMessage
+    });
 
-    console.log('Calling Gemini API...');
-    const result = await model.generateContent(conversationContext);
+    console.log('Calling Groq API with model:', GROQ_MODEL);
     
-    if (!result || !result.response) {
-      console.error('Invalid response from Gemini API');
+    const groqResponse = await axios.post(
+      GROQ_API_ENDPOINT,
+      {
+        model: GROQ_MODEL,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1024
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!groqResponse.data || !groqResponse.data.choices || groqResponse.data.choices.length === 0) {
+      console.error('Invalid response from Groq API');
       return generateFallbackResponse(userMessage, summary);
     }
 
-    const response = result.response.text();
+    const response = groqResponse.data.choices[0].message.content;
     
     if (!response) {
-      console.error('Empty response from Gemini API');
+      console.error('Empty response from Groq API');
       return generateFallbackResponse(userMessage, summary);
     }
     
@@ -262,17 +287,17 @@ async function generateGeminiResponse(userMessage, userId, conversationHistory) 
     
     return response;
   } catch (error) {
-    console.error('Error in generateGeminiResponse:', error.message);
+    console.error('Error in generateGroqResponse:', error.message);
     
     // Check if it's a rate limit error
-    if (error.message && error.message.includes('429')) {
-      console.warn('Gemini API rate limited (429). Using fallback.');
+    if (error.response && error.response.status === 429) {
+      console.warn('Groq API rate limited (429). Using fallback.');
       return generateFallbackResponse(userMessage, summary);
     }
     
     // For any other error, use fallback
     if (summary) {
-      console.warn('Using fallback response due to API error');
+      console.warn('Using fallback response due to API error:', error.message);
       return generateFallbackResponse(userMessage, summary);
     }
     
@@ -383,8 +408,8 @@ exports.sendMessage = async (req, res) => {
 
     console.log('Retrieved conversation history, length:', conversationHistory.length);
 
-    // Generate AI response using Gemini
-    const aiResponseText = await generateGeminiResponse(message, req.user.id, conversationHistory);
+    // Generate AI response using Groq
+    const aiResponseText = await generateGroqResponse(message, req.user.id, conversationHistory);
 
     console.log('Generated AI response');
 

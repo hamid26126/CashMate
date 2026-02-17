@@ -1,48 +1,52 @@
 require('dotenv').config();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 
-async function testGemini() {
+async function testGroq() {
   try {
-    console.log('API Key exists:', !!process.env.GEMINI_API_KEY);
+    console.log('API Key exists:', !!process.env.GROQ_API_KEY);
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    console.log('GenAI initialized');
-    
-    // Wait a bit for the quota to potentially reset
-    console.log('\nWaiting 20 seconds for potential quota reset...');
-    await new Promise(resolve => setTimeout(resolve, 20000));
-    
-    // Try different model names
-    const modelNames = [
-      'gemini-2.0-flash',
-      'gemini-2.0-pro-exp-20250212',
-      'gemini-2.0-flash-thinking-exp-1219',
-      'learnlm-1.5-pro-experimental'
-    ];
-    
-    for (const modelName of modelNames) {
-      try {
-        console.log(`\nTrying model: ${modelName}`);
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent('Hello!');
-        console.log(`✓ Success with ${modelName}`);
-        console.log('Response:', result.response.text().substring(0, 100));
-        return;
-      } catch (err) {
-        const msg = err.message;
-        if (msg.includes('429')) {
-          console.log(`⚠ Rate limited for ${modelName}`);
-        } else if (msg.includes('404')) {
-          console.log(`✗ Not found: ${modelName}`);
-        } else {
-          console.log(`✗ Error: ${msg.substring(0, 80)}`);
-        }
-      }
+    if (!process.env.GROQ_API_KEY) {
+      console.error('❌ GROQ_API_KEY not found in .env');
+      return;
     }
     
+    const GROQ_API_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+    const GROQ_MODEL = 'llama-3.1-8b-instant';
+    
+    console.log(`\nTesting Groq API with model: ${GROQ_MODEL}`);
+    console.log('Endpoint:', GROQ_API_ENDPOINT);
+    
+    const response = await axios.post(
+      GROQ_API_ENDPOINT,
+      {
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'user',
+            content: 'Say hello and confirm you are Groq API!'
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 256
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    console.log('\n✅ Groq API Connection Successful!');
+    console.log('Response:', response.data.choices[0].message.content);
+    
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('❌ Error:', error.message);
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', error.response.data);
+    }
   }
 }
 
-testGemini();
+testGroq();
